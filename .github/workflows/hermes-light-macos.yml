@@ -25,8 +25,58 @@ jobs:
           sw_vers
           python3 --version
 
-      - name: Build unsigned remote-only Hermes Light
+      - name: Enable ad-hoc signing for Apple Silicon
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('apps/desktop/electron-builder.config.cjs')
+          text = p.read_text()
+          old = """    sign: createMacSigner({
+                entitlements: path.join(__dirname, 'electron/entitlements.mac.plist'),
+                entitlementsInherit: path.join(__dirname, 'electron/entitlements.mac.inherit.plist'),
+                hardenedRuntime: true,
+                ignore: (/** @type {string} */ file) => {
+                  try {
+                    if (fs.lstatSync(file).isDirectory()) {
+                      return false
+                    }
+                    return !isMachO(file)
+                  } catch {
+                    return true
+                  }
+                }
+              })"""
+          new = """    sign: {
+                identity: '-',
+                entitlements: path.join(__dirname, 'electron/entitlements.mac.plist'),
+                entitlementsInherit: path.join(__dirname, 'electron/entitlements.mac.inherit.plist'),
+                hardenedRuntime: true,
+                ignore: (/** @type {string} */ file) => {
+                  try {
+                    if (fs.lstatSync(file).isDirectory()) {
+                      return false
+                    }
+                    return !isMachO(file)
+                  } catch {
+                    return true
+                  }
+                }
+              }"""
+          if old not in text:
+              raise SystemExit('Expected macOS signing block not found')
+          p.write_text(text.replace(old, new, 1))
+          PY
+
+      - name: Build ad-hoc-signed remote-only Hermes Light
         run: scripts/build-bundle.sh --variant light
+
+      - name: Verify application signature
+        run: |
+          set -euxo pipefail
+          APP=$(find apps/desktop/release/mac-arm64 -maxdepth 1 -name '*.app' -print -quit)
+          test -n "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign -dv --verbose=2 "$APP" 2>&1 | grep -E 'Signature=adhoc|TeamIdentifier=not set'
 
       - name: Record checksums and sizes
         run: |
