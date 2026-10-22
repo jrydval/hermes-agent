@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Check out Hermes
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
 
@@ -32,12 +32,12 @@ jobs:
         run: |
           set -euxo pipefail
           cd apps/desktop/release
-          shasum -a 256 * > SHA256SUMS.txt
+          shasum -a 256 ./*.dmg ./*.zip > SHA256SUMS.txt
           du -sh .
           ls -lah
 
       - name: Upload macOS installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: Hermes-Light-macOS-Apple-Silicon
           path: |
