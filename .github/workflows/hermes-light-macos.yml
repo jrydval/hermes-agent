@@ -1,0 +1,49 @@
+name: Build Hermes Light for Apple Silicon
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: macOS arm64 Light
+    runs-on: macos-15
+    timeout-minutes: 180
+
+    steps:
+      - name: Check out Hermes
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify native Apple Silicon runner
+        run: |
+          set -euxo pipefail
+          test "$(uname -m)" = "arm64"
+          sw_vers
+          python3 --version
+
+      - name: Build unsigned remote-only Hermes Light
+        run: scripts/build-bundle.sh --variant light
+
+      - name: Record checksums and sizes
+        run: |
+          set -euxo pipefail
+          cd apps/desktop/release
+          shasum -a 256 * > SHA256SUMS.txt
+          du -sh .
+          ls -lah
+
+      - name: Upload macOS installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Hermes-Light-macOS-Apple-Silicon
+          path: |
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.zip
+            apps/desktop/release/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
